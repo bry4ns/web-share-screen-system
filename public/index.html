@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Sistema de transmisión de pantalla en tiempo real">
+    <title>Transmisión de Pantalla - WebRTC</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <style>
+        body {
+            background: linear-gradient(135deg, #0f172a 0%, #581c87 50%, #0f172a 100%);
+            min-height: 100vh;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+        }
+        
+        video {
+            background: #000;
+        }
+        
+        .pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: .5;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- =============================================== -->
+    <!-- PANTALLA DE SELECCIÓN (Inicio)                 -->
+    <!-- =============================================== -->
+    <div id="selectScreen" class="flex items-center justify-center min-h-screen p-4">
+        <div class="max-w-4xl w-full">
+            
+            <!-- Encabezado -->
+            <div class="text-center mb-12">
+                <div class="inline-flex items-center justify-center w-20 h-20 bg-purple-600 rounded-2xl mb-6 shadow-2xl">
+                    <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <rect x="2" y="3" width="20" height="14" rx="2" ry="2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <line x1="8" y1="21" x2="16" y2="21" stroke-width="2" stroke-linecap="round"/>
+                        <line x1="12" y1="17" x2="12" y2="21" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                </div>
+                <h1 class="text-4xl md:text-5xl font-bold text-white mb-4">
+                    Transmisión de Pantalla en Vivo
+                </h1>
+                <p class="text-purple-200 text-lg">
+                    Comparte tu pantalla o únete a una transmisión existente
+                </p>
+            </div>
+
+            <!-- Opciones principales -->
+            <div class="grid md:grid-cols-2 gap-6">
+                
+                <!-- Opción 1: Transmitir -->
+                <div class="bg-white/10 backdrop-blur-lg rounded-2xl p-8 border border-white/20 hover:bg-white/15 transition-all duration-300 transform hover:scale-105">
+                    <div class="w-12 h-12 bg-green-500 rounded-xl flex items-center justify-center mb-4 shadow-lg">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <rect x="2" y="3" width="20" height="14" rx="2" ry="2" stroke-width="2"/>
+                            <circle cx="12" cy="10" r="2" fill="currentColor"/>
+                        </svg>
+                    </div>
+                    <h2 class="text-2xl font-bold text-white mb-3">
+                        Transmitir Pantalla
+                    </h2>
+                    <p class="text-purple-200 mb-6">
+                        Comparte tu pantalla con otros usuarios. Recibirás un código único para compartir.
+                    </p>
+                    <button 
+                        onclick="startBroadcasting()" 
+                        class="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-3 px-6 rounded-xl transition-colors shadow-lg hover:shadow-xl">
+                        🎥 Iniciar Transmisión
+                    </button>
+                </div>
+
+                <!-- Opción 2: Ver transmisión -->
+                <div class="bg-white/10 backdrop-blur-lg rounded-2xl p-8 border border-white/20 hover:bg-white/15 transition-all duration-300 transform hover:scale-105">
+                    <div class="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center mb-4 shadow-lg">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <circle cx="9" cy="7" r="4" stroke-width="2"/>
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </div>
+                    <h2 class="text-2xl font-bold text-white mb-3">
+                        Ver Transmisión
+                    </h2>
+                    <p class="text-purple-200 mb-6">
+                        Ingresa el código de la sala para ver la transmisión en vivo.
+                    </p>
+                    <input 
+                        type="text" 
+                        id="roomCodeInput" 
+                        placeholder="Código de sala (ej: ABC123XY)" 
+                        maxlength="8" 
+                        class="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-purple-300 mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase text-center text-lg font-mono"
+                        onkeypress="if(event.key === 'Enter') joinRoom()">
+                    <button 
+                        onclick="joinRoom()" 
+                        class="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 px-6 rounded-xl transition-colors shadow-lg hover:shadow-xl">
+                        👥 Unirse a la Sala
+                    </button>
+                </div>
+            </div>
+
+            <!-- Información adicional -->
+            <div class="mt-8 bg-white/5 backdrop-blur-lg rounded-xl p-6 border border-white/10">
+                <h3 class="text-white font-semibold mb-3 text-lg">✨ Características del Sistema:</h3>
+                <div class="grid md:grid-cols-2 gap-3">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- =============================================== -->
+    <!-- PANTALLA DEL BROADCASTER (Transmisor)          -->
+    <!-- =============================================== -->
+    <div id="broadcasterScreen" class="hidden min-h-screen p-4">
+        <div class="max-w-6xl mx-auto">
+            
+            <!-- Header del broadcaster -->
+            <div class="bg-white/10 backdrop-blur-lg rounded-2xl p-6 mb-4 border border-white/20 shadow-xl">
+                <div class="flex items-center justify-between flex-wrap gap-4">
+                    <div class="flex items-center gap-4">
+                        <div class="w-12 h-12 bg-green-500 rounded-xl flex items-center justify-center pulse shadow-lg">
+                            <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                                <circle cx="12" cy="12" r="8"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <h1 class="text-2xl font-bold text-white">🔴 Transmitiendo en Vivo</h1>
+                            <div class="flex items-center gap-4 text-sm mt-1">
+                                <span id="connectionStatus" class="text-green-400 flex items-center gap-1">
+                                    <span class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+                                    Conectado
+                                </span>
+                                <span id="viewerCount" class="text-purple-300 flex items-center gap-1">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke-width="2"/>
+                                        <circle cx="9" cy="7" r="4" stroke-width="2"/>
+                                        <path d="M23 21v-2a4 4 0 0 0-3-3.87" stroke-width="2"/>
+                                    </svg>
+                                    0 espectadores
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    <button 
+                        onclick="stopBroadcasting()" 
+                        class="bg-red-500 hover:bg-red-600 text-white font-semibold py-3 px-6 rounded-xl transition-colors shadow-lg hover:shadow-xl">
+                        ⏹️ Detener Transmisión
+                    </button>
+                </div>
+            </div>
+
+            <!-- Información para compartir -->
+            <div id="shareInfo" class="bg-white/10 backdrop-blur-lg rounded-xl p-6 mb-4 border border-white/20 shadow-xl">
+                <h3 class="text-white font-semibold mb-4 text-lg flex items-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    Compartir con espectadores
+                </h3>
+                <div class="grid md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-purple-300 text-sm mb-2 block font-medium">🔑 Código de Sala</label>
+                        <div class="flex gap-2">
+                            <input 
+                                type="text" 
+                                id="roomIdDisplay" 
+                                readonly 
+                                class="flex-1 bg-white/10 border border-white/20 rounded-lg px-4 py-3 text-white font-mono text-xl text-center tracking-wider">
+                            <button 
+                                onclick="copyRoomId()" 
+                                class="bg-purple-600 hover:bg-purple-700 text-white px-4 rounded-lg transition-colors shadow-lg hover:shadow-xl" 
+                                title="Copiar código">
+                                📋
+                            </button>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="text-purple-300 text-sm mb-2 block font-medium">🔗 URL Directo</label>
+                        <div class="flex gap-2">
+                            <input 
+                                type="text" 
+                                id="shareUrl" 
+                                readonly 
+                                class="flex-1 bg-white/10 border border-white/20 rounded-lg px-4 py-3 text-white text-sm truncate">
+                            <button 
+                                onclick="copyShareUrl()" 
+                                class="bg-purple-600 hover:bg-purple-700 text-white px-4 rounded-lg transition-colors shadow-lg hover:shadow-xl" 
+                                title="Copiar URL">
+                                🔗
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Video preview -->
+            <div class="bg-black rounded-2xl overflow-hidden border-4 border-purple-500/30 shadow-2xl">
+                <video 
+                    id="localVideo" 
+                    autoplay 
+                    muted 
+                    playsinline 
+                    class="w-full h-auto min-h-[400px]">
+                </video>
+            </div>
+
+            <div class="mt-4 text-center">
+                <p class="text-purple-300 text-sm bg-purple-900/30 rounded-lg p-3 inline-block">
+                    💡 Tu pantalla está siendo transmitida en tiempo real. Los espectadores verán exactamente lo que ves aquí.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- =============================================== -->
+    <!-- PANTALLA DEL VIEWER (Espectador)               -->
+    <!-- =============================================== -->
+    <div id="viewerScreen" class="hidden min-h-screen p-4">
+        <div class="max-w-6xl mx-auto">
+            
+            <!-- Header del viewer -->
+            <div class="bg-white/10 backdrop-blur-lg rounded-2xl p-6 mb-4 border border-white/20 shadow-xl">
+                <div class="flex items-center justify-between flex-wrap gap-4">
+                    <div class="flex items-center gap-4">
+                        <div class="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center shadow-lg">
+                            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <h1 class="text-2xl font-bold text-white">👁️ Viendo Transmisión</h1>
+                            <div class="flex items-center gap-4 text-sm mt-1">
+                                <span id="viewerConnectionStatus" class="text-green-400 flex items-center gap-1">
+                                    <span class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+                                    Conectado
+                                </span>
+                                <span id="viewerRoomId" class="text-purple-300">Sala: </span>
+                            </div>
+                        </div>
+                    </div>
+                    <button 
+                        onclick="leaveRoom()" 
+                        class="bg-red-500 hover:bg-red-600 text-white font-semibold py-3 px-6 rounded-xl transition-colors shadow-lg hover:shadow-xl">
+                        🚪 Salir
+                    </button>
+                </div>
+            </div>
+
+            <!-- Video del stream remoto -->
+            <div class="bg-black rounded-2xl overflow-hidden border-4 border-blue-500/30 shadow-2xl">
+                <video 
+                    id="remoteVideo" 
+                    autoplay 
+                    playsinline 
+                    class="w-full h-auto min-h-[400px]">
+                </video>
+            </div>
+
+            <div class="mt-4 text-center">
+                <p class="text-purple-300 text-sm bg-blue-900/30 rounded-lg p-3 inline-block">
+                    📺 Estás viendo la transmisión en vivo. La calidad se ajusta automáticamente según tu conexión.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cargar el JavaScript del cliente -->
+    <script src="app.js"></script>
+    
+</body>
+</html>
