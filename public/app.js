@@ -402,6 +402,23 @@ function showScreen(screenId) {
     document.getElementById(screenId).classList.remove('hidden');
 }
 
+// Pantalla completa para video
+function toggleFullscreen(videoId) {
+    const video = document.getElementById(videoId);
+    if (!video) return;
+    if (document.fullscreenElement) {
+        document.exitFullscreen();
+    } else {
+        if (video.requestFullscreen) {
+            video.requestFullscreen();
+        } else if (video.webkitRequestFullscreen) {
+            video.webkitRequestFullscreen();
+        } else if (video.msRequestFullscreen) {
+            video.msRequestFullscreen();
+        }
+    }
+}
+
 // Verificar si hay un código de sala en la URL al cargar
 window.addEventListener('DOMContentLoaded', () => {
     const params = new URLSearchParams(window.location.search);
