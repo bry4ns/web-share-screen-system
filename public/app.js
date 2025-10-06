@@ -1,5 +1,7 @@
 // Variables globales
 let ws = null;
+let reconnectAttempts = 0;
+let reconnectTimeout = null;
 let localStream = null;
 let peerConnections = new Map(); // Mapa de conexiones peer (viewerId -> RTCPeerConnection)
 let currentRoomId = null;
@@ -18,17 +20,37 @@ const iceServers = {
 function connectWebSocket() {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}`;
-    
+
     ws = new WebSocket(wsUrl);
-    
+
     ws.onopen = () => {
         console.log('✅ Conectado al servidor WebSocket');
+        reconnectAttempts = 0;
+        if (reconnectTimeout) {
+            clearTimeout(reconnectTimeout);
+            reconnectTimeout = null;
+        }
+        // Si es broadcaster y estaba transmitiendo, recrear sala
+        if (isBroadcaster && currentRoomId && localStream) {
+            ws.send(JSON.stringify({
+                type: 'create-room',
+                roomId: currentRoomId
+            }));
+        }
+        // Si es viewer y estaba en sala, volver a unirse
+        if (!isBroadcaster && currentRoomId && viewerId) {
+            ws.send(JSON.stringify({
+                type: 'join-room',
+                roomId: currentRoomId,
+                viewerId: viewerId
+            }));
+        }
     };
-    
+
     ws.onmessage = async (event) => {
         const data = JSON.parse(event.data);
         console.log('📩 Mensaje recibido:', data.type);
-        
+
         switch(data.type) {
             case 'room-created':
                 handleRoomCreated(data);
@@ -59,13 +81,24 @@ function connectWebSocket() {
                 break;
         }
     };
-    
+
     ws.onerror = (error) => {
         console.error('❌ Error de WebSocket:', error);
     };
-    
+
     ws.onclose = () => {
         console.log('🔌 Desconectado del servidor');
+        // Intentar reconectar automáticamente
+        if (reconnectAttempts < 10) {
+            const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 15000); // backoff exponencial
+            reconnectAttempts++;
+            console.log(`🔄 Reintentando conexión en ${delay / 1000}s...`);
+            reconnectTimeout = setTimeout(() => {
+                connectWebSocket();
+            }, delay);
+        } else {
+            alert('No se pudo reconectar al servidor. Intenta recargar la página.');
+        }
     };
 }
 
