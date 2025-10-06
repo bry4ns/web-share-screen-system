@@ -70,8 +70,9 @@ function connectWebSocket() {
 }
 
 // Generar ID aleatorio
+// Generar código de sala de 3 dígitos numéricos
 function generateRoomId() {
-    return Math.random().toString(36).substring(2, 10).toUpperCase();
+    return Math.floor(100 + Math.random() * 900).toString();
 }
 
 // Iniciar transmisión
@@ -92,27 +93,47 @@ async function startBroadcasting() {
         // Generar ID de sala
         currentRoomId = generateRoomId();
         isBroadcaster = true;
-        
+
         // Conectar al servidor
         connectWebSocket();
-        
+
         // Esperar a que la conexión esté abierta
         await waitForWebSocket();
-        
+
         // Crear la sala
         ws.send(JSON.stringify({
             type: 'create-room',
             roomId: currentRoomId
         }));
-        
+
         // Detectar cuando se detiene la transmisión
         localStream.getVideoTracks()[0].onended = () => {
             stopBroadcasting();
         };
-        
+
         // Cambiar a pantalla de broadcaster
         showScreen('broadcasterScreen');
-        
+
+        // Mostrar QR con el link de la transmisión
+        setTimeout(() => {
+            const shareUrl = `${window.location.origin}?room=${currentRoomId}`;
+            let qrContainer = document.getElementById('qrContainer');
+            if (!qrContainer) {
+                qrContainer = document.createElement('div');
+                qrContainer.id = 'qrContainer';
+                qrContainer.className = 'flex flex-col items-center justify-center mt-4';
+                document.getElementById('shareInfo').appendChild(qrContainer);
+            } else {
+                qrContainer.innerHTML = '';
+            }
+            const qr = generateQRCode(shareUrl, 180);
+            qrContainer.appendChild(qr);
+            const qrLabel = document.createElement('div');
+            qrLabel.className = 'text-purple-300 text-xs mt-2';
+            qrLabel.textContent = 'Escanea para unirte a la transmisión';
+            qrContainer.appendChild(qrLabel);
+        }, 500);
+
     } catch (error) {
         console.error('❌ Error al iniciar transmisión:', error);
         alert('No se pudo acceder a la pantalla. Asegúrate de dar permisos.');
